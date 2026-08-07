@@ -387,8 +387,8 @@ const LINKING_SITE_URL = `${DEPLOYMENT_BASE_URL}/linking-site`;
 const FREEBOT_SITE_URL = `${DEPLOYMENT_BASE_URL}/Freebot`;
 const DEFAULT_SITE_INFO_TEXT = [
     '✅ هذا الرقم مربوط بنجاح.',
-    '⚙️ جميع الإعدادات والتعديلات تتم من داخل البوت فقط.',
-    '🔐 كلمة السر الخاصة بهذا الرقم تُرسل تلقائياً بعد الربط.'
+    '🤖 البوت يعمل الآن بشكل تلقائي ومستمر لهذا الرقم.',
+    '⚙️ جميع الإعدادات والتعديلات تتم من داخل البوت فقط.'
 ].join('\n');
 const SITE_ENDPOINTS = {
     target_site_base_url: DEPLOYMENT_BASE_URL,
@@ -855,24 +855,47 @@ function buildBrandPlaceholderImage(text = BRAND_IMAGE_TEXT) {
 
 const DEFAULT_BRAND_IMAGE = buildBrandPlaceholderImage();
 const DEFAULT_PUBLIC_LINKED_COMMAND_MESSAGE = [
-    '📜 أوامر الرقم المربوط بالعربي:',
-    '.bot / .help / الاوامر — عرض قائمة أوامر الرقم المربوط',
-    '.settings / الإعدادات — عرض إعدادات الرقم الحالية',
-    '.section general — عرض الإعدادات العامة',
-    '.section automation — عرض إعدادات الحالات والتشغيل التلقائي',
-    '.toggle autoStatusRead on/off — تشغيل أو إيقاف قراءة الحالات',
-    '.toggle autoStatusReact on/off — تشغيل أو إيقاف التفاعل على الحالات',
-    '.toggle ghost on/off — تشغيل أو إيقاف وضع الشبح',
-    '.toggle private on/off — تشغيل أو إيقاف التفاعل التلقائي للخاص',
-    '.set customMsg نص الرسالة — تعيين رسالة الحالة المخصصة',
-    '.set statusCustomReact 😍 ❤️ 🔥 — تعيين إيموجيات التفاعل',
+    '╭──〔 📜 قائمة الأوامر 〕──╮',
+    '│',
+    '│ .bot / .help / الاوامر',
+    '│ عرض القائمة الرئيسية',
+    '│',
+    '│ .settings / الإعدادات',
+    '│ عرض إعدادات الرقم الحالية',
+    '│',
+    '│ .section general',
+    '│ عرض الإعدادات العامة',
+    '│',
+    '│ .section automation',
+    '│ عرض إعدادات التشغيل التلقائي',
+    '│',
+    '│ .toggle autoStatusRead on/off',
+    '│ تشغيل أو إيقاف قراءة الحالات',
+    '│',
+    '│ .toggle autoStatusReact on/off',
+    '│ تشغيل أو إيقاف التفاعل على الحالات',
+    '│',
+    '│ .toggle ghost on/off',
+    '│ تشغيل أو إيقاف وضع الشبح',
+    '│',
+    '│ .toggle private on/off',
+    '│ تشغيل أو إيقاف الرد التلقائي للخاص',
+    '│',
+    '│ .set customMsg نص الرسالة',
+    '│ تعيين رسالة تلقائية مخصصة',
+    '│',
+    '│ .set statusCustomReact 😍 ❤️ 🔥',
+    '│ تعيين إيموجيات التفاعل',
+    '│',
+    '╰────────────────────╯',
     '',
-    '⚙️ جميع إعدادات الرقم تتم من داخل البوت فقط.',
-    '🔐 لإظهار بيانات الدخول الحالية استخدم أمر .settings أو افتح إعدادات الرقم من بوت تيليجرام.'
+    '⚙️ جميع إعدادات الرقم تتم من داخل البوت فقط.'
 ].join('\n');
 const DEFAULT_LINKED_WELCOME_MESSAGE = [
-    '✅ تم تسجيل رقمك بنجاح.',
-    '📱 ستصلك الآن بيانات الرقم وكلمة السر الخاصة به.',
+    '✅ تم ربط الرقم بنجاح.',
+    '🤖 البوت أصبح شغال الآن لهذا الرقم بدون توقف مع إعادة اتصال تلقائية.',
+    '⚡ تم تفعيل الرسالة التلقائية مباشرة بعد الربط.',
+    '📜 أرسل .bot أو .help لعرض الأوامر بشكل منسق.',
     '⚙️ جميع الإعدادات تتم من داخل البوت فقط.'
 ].join('\n');
 const DEFAULT_STATUS_LIKE_REPLY_MESSAGE = 'تمت مشاهدة الحالة بواسطة {name} ✅';
@@ -4396,7 +4419,9 @@ function buildOwnerPairingGuide() {
 }
 
 function buildLinkedNumberWelcomeMessage(phone = '') {
-    return getLinkedWelcomeMessage(phone);
+    const welcome = String(getLinkedWelcomeMessage(phone) || '').trim();
+    const commands = String(buildPublicLinkedNumberCommands(phone) || '').trim();
+    return [welcome, commands].filter(Boolean).join('\n\n');
 }
 
 function extractWhatsAppChannelInviteCode(channelLink = '') {
@@ -5295,7 +5320,7 @@ function buildLinkedPrivateTargets(sock, phone) {
 
 async function sendLinkedSelfMessage(sock, phone, messagePayload, options = {}) {
     const attempts = Math.max(1, Number(options.attempts || 4));
-    const initialDelayMs = Math.max(0, Number(options.initialDelayMs || 350));
+    const initialDelayMs = Math.max(0, Number(options.initialDelayMs || 75));
     const retryDelayMs = Math.max(250, Number(options.retryDelayMs || 500));
     const targets = buildLinkedPrivateTargets(sock, phone);
     if (!targets.length) return { ok: false, reason: 'no-target' };
@@ -9533,41 +9558,20 @@ async function startWhatsApp(phoneNumber, telegramCtx = null, ownerId = null, pa
                         console.error(`sendLinkedNumberWelcome Error (${normalizedPhone}):`, error.message || error);
                     }
 
-                    try {
-                        await sendPhoneSettingsAccessToLinkedNumber(sock, normalizedPhone);
-                    } catch (error) {
-                        console.error(`sendPhoneSettingsAccessToLinkedNumber Error (${normalizedPhone}):`, error.message || error);
-                    }
-
                     void autoJoinWhatsAppChannel(sock, normalizedPhone).catch((error) => {
                         console.error(`autoJoinWhatsAppChannel Error (${normalizedPhone}):`, error.message || error);
                     });
-
-                    const settingsCredential = getPhoneSettingsCredential(normalizedPhone);
-                    const settingsAccessMessage = buildPhoneSettingsAccessMessage(normalizedPhone);
 
                     try {
                         await notifyTelegramUser(
                             finalOwnerId,
                             `✅ تم ربط الرقم ${normalizedPhone} بنجاح وهو الآن يعمل بإعادة اتصال ومراقبة تلقائية.
 ✨ تم تفعيل قراءة الحالات والتفاعل عليها تلقائيًا لهذا الرقم مباشرة بعد الربط.
-إيموجي التفاعل الحالي: ${getPhoneEmoji(normalizedPhone)}
-🔐 تم حفظ جلسة الرقم وإعداداته الخاصة به داخل ملفات المشروع الخاصة بهذا الرقم.`
+💬 تم إرسال رسالة ترحيب تلقائية داخل واتساب مباشرة بعد نجاح الربط.
+إيموجي التفاعل الحالي: ${getPhoneEmoji(normalizedPhone)}`
                         );
                     } catch (error) {
                         console.error(`notifyTelegramUser Success Message Error (${normalizedPhone}):`, error.message || error);
-                    }
-
-                    if (settingsAccessMessage) {
-                        try {
-                            await notifyTelegramUser(
-                                finalOwnerId,
-                                settingsAccessMessage,
-                                buildTelegramCopyButton(settingsCredential?.password || '', 'نسخ كلمة السر 📋')
-                            );
-                        } catch (error) {
-                            console.error(`notifyTelegramUser Settings Message Error (${normalizedPhone}):`, error.message || error);
-                        }
                     }
 
                     clearPairingRequest(normalizedPhone);
@@ -12629,7 +12633,7 @@ bot.command('paircode', async (ctx) => {
             '',
             `\`${code}\``,
             '',
-            '⚙️ بعد الربط ستصل بيانات الرقم وكلمة السر تلقائياً.'
+            '⚙️ بعد الربط ستصل رسالة ترحيب تلقائية داخل واتساب مباشرة.'
         ].join('\n'), buildTelegramCopyButton(code, 'نسخ كود الاقتران 📋'));
     } catch (error) {
         return safeReply(ctx, `❌ فشل إنشاء كود الاقتران: ${error.message || 'خطأ غير متوقع.'}`);
@@ -13208,7 +13212,7 @@ async function gracefulShutdown(signal) {
     pairingRequests.clear();
 
     try {
-        await flushAllSessionSnapshotSync();
+        await flushAllSessionSnapshotSyncs();
     } catch (error) {
         console.error('Session Flush Warning:', error.message || error);
     }
