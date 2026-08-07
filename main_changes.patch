@@ -1,0 +1,312 @@
+--- /home/user/uploads/main_6.py	2026-07-27 22:05:11.849938316 +0000
++++ /home/user/final_main.py	2026-07-27 22:09:27.857938316 +0000
+@@ -919,6 +919,8 @@
+ def build_main_keyboard(admin: bool = False) -> InlineKeyboardMarkup:
+     keyboard = [
+         [InlineKeyboardButton("📞 ربط كود", callback_data="pair_code")],
++        [InlineKeyboardButton("⚙️ إعدادات الرقم", callback_data="open_drf")],
++        [InlineKeyboardButton("🔐 كلمة سر الرقم", callback_data="get_my_password")],
+         [InlineKeyboardButton("😀 رموز الحالة", callback_data="user_set_emoji")],
+         [InlineKeyboardButton("📱 أرقامك المربوطة", callback_data="my_linked_numbers")],
+         [InlineKeyboardButton("❌ إلغاء ربط رقمك", callback_data="unlink_my_number")],
+@@ -1542,10 +1544,19 @@
+     lines.extend(["", purpose_line])
+     return "\n".join(lines)
+ 
+-def build_owned_numbers_keyboard(user_id: int) -> InlineKeyboardMarkup:
++def build_owned_numbers_keyboard(user_id: int, purpose: str = "manage") -> InlineKeyboardMarkup:
+     records = get_all_user_whatsapp_records(user_id)
+     keyboard: list[list[InlineKeyboardButton]] = []
+     for number, _record in records[:20]:
++        if str(purpose or "").strip().lower() == "unlink":
++            keyboard.append([
++                InlineKeyboardButton(f"❌ إلغاء ربط {number}", callback_data=f"unlink_number:{number}"),
++            ])
++            continue
++        keyboard.append([
++            InlineKeyboardButton(f"🔐 باسورد {number}", callback_data=f"owned_pwd:{number}"),
++            InlineKeyboardButton(f"⚙️ إعدادات {number}", callback_data=f"owned_drf:{number}"),
++        ])
+         keyboard.append([
+             InlineKeyboardButton(f"❌ إلغاء ربط {number}", callback_data=f"unlink_number:{number}"),
+         ])
+@@ -1591,7 +1602,7 @@
+ async def show_owned_numbers_panel(message, user_id: int, purpose: str = "manage") -> None:
+     text = build_owned_numbers_text(user_id, purpose=purpose)
+     if get_all_user_whatsapp_records(user_id):
+-        await message.reply_text(text, reply_markup=build_owned_numbers_keyboard(user_id))
++        await message.reply_text(text, reply_markup=build_owned_numbers_keyboard(user_id, purpose=purpose))
+     else:
+         await message.reply_text(text, reply_markup=build_main_keyboard(admin=(int(user_id) == int(ADMIN_ID))))
+ 
+@@ -1605,8 +1616,31 @@
+         )
+         return
+ 
++    password_value = extract_site_password_from_record(record)
++    settings_url = normalize_settings_url(record.get("settings_url")) if isinstance(record, dict) else TARGET_SETTINGS_PAGE_URL
++    if not password_value:
++        await message.reply_text(
++            "⌛ الباسورد لسه ماوصلش، سيتم طلبه تلقائياً الآن من الرقم المربوط.\n" + build_password_wait_message(number),
++            reply_markup=build_main_keyboard(admin=(int(user_id) == int(ADMIN_ID))),
++        )
++        try:
++            await auto_request_site_password(number, explicit_user_id=user_id)
++        except Exception:
++            logger.exception("Failed while auto-requesting site password for %s", number)
++        refreshed_record = find_user_record_for_number(user_id, number)
++        password_value = extract_site_password_from_record(refreshed_record)
++        if not password_value:
++            return
++        record = refreshed_record
++        settings_url = normalize_settings_url(record.get("settings_url")) if isinstance(record, dict) else TARGET_SETTINGS_PAGE_URL
++
+     await message.reply_text(
+-        f"ℹ️ تم إخفاء الدخول لإعدادات الرقم {number} من الواجهة. استخدم فقط زر رموز الحالة للتفاعل التلقائي.",
++        "\n".join([
++            f"✅ باسورد الرقم {number} جاهز.",
++            f"🔐 كلمة السر: {password_value}",
++            f"⚙️ صفحة الإعدادات: {settings_url}",
++            "😀 تقدر الآن تفتح إعدادات الرقم من داخل البوت أو تغيّر إيموجي الحالة مباشرة.",
++        ]),
+         reply_markup=build_main_keyboard(admin=(int(user_id) == int(ADMIN_ID))),
+     )
+ 
+@@ -2573,20 +2607,7 @@
+     )
+ 
+ 
+-async def drf_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+-    register_user(update)
+-    if not await ensure_subscription(update, context):
+-        return
+-    user = update.effective_user
+-    message = update.effective_message
+-    if not user or not message:
+-        return
+-    if not is_admin(update):
+-        await message.reply_text(
+-            "🔒 تم إخفاء وقفل الدخول لإعدادات الرقم من الواجهة.\n😀 استخدم زر رموز الحالة فقط لتعديل التفاعل التلقائي.",
+-            reply_markup=build_main_keyboard(admin=False),
+-        )
+-        return
++async def open_linked_number_settings_panel(message, context: ContextTypes.DEFAULT_TYPE, user_id: int, preferred_number: str = "") -> None:
+     context.user_data.pop("awaiting_pair_number", None)
+     context.user_data.pop("awaiting_user_emoji", None)
+     context.user_data.pop("awaiting_emoji_credentials", None)
+@@ -2597,33 +2618,72 @@
+     context.user_data.pop("selected_drf_language", None)
+     context.user_data.pop("awaiting_drf_credentials", None)
+     context.user_data.pop("awaiting_password_number", None)
+-    context.user_data.pop("drf_auth_payload", None)
+     context.user_data.pop("drf_settings_payload", None)
+ 
+-    linked_number, linked_payload = get_user_primary_whatsapp_record(user.id)
++    target_number = normalize_phone_number(preferred_number)
++    linked_number, linked_payload = resolve_user_record(user_id, target_number) if target_number else get_user_primary_whatsapp_record(user_id)
+     linked_number = normalize_phone_number(linked_number)
+     linked_payload = linked_payload if isinstance(linked_payload, dict) else {}
+     linked_password = extract_site_password_from_record(linked_payload)
+ 
++    if linked_number and linked_password:
++        context.user_data["drf_auth_payload"] = {
++            "number": linked_number,
++            "site_password": linked_password,
++            "site_app_id": str(linked_payload.get("site_app_id") or "").strip(),
++            "settings_url": normalize_settings_url(linked_payload.get("settings_url")),
++        }
++        await show_drf_panel(message, context, user_id, page=0, force_reload=True)
++        return
++
++    if linked_number and not linked_password:
++        await message.reply_text(
++            "⌛ الرقم مربوط لكن كلمة السر ماوصلتش بعد. سأطلبها تلقائياً الآن من واتساب، وبمجرد وصولها ستجدها هنا وفي خاص الرقم.\n" + build_password_wait_message(linked_number),
++            reply_markup=build_main_keyboard(admin=(int(user_id) == int(ADMIN_ID))),
++        )
++        try:
++            await auto_request_site_password(linked_number, explicit_user_id=user_id)
++        except Exception:
++            logger.exception("Failed to auto request password while opening settings for %s", linked_number)
++        refreshed_record = find_user_record_for_number(user_id, linked_number)
++        refreshed_password = extract_site_password_from_record(refreshed_record)
++        if refreshed_password:
++            context.user_data["drf_auth_payload"] = {
++                "number": linked_number,
++                "site_password": refreshed_password,
++                "site_app_id": str(refreshed_record.get("site_app_id") or linked_payload.get("site_app_id") or "").strip(),
++                "settings_url": normalize_settings_url(refreshed_record.get("settings_url") or linked_payload.get("settings_url")),
++            }
++            await show_drf_panel(message, context, user_id, page=0, force_reload=True)
++            return
++
+     manual_lines = [
+-        "🔐 تم تعطيل الدخول التلقائي لإعدادات الموقع.",
+-        "من الآن الدخول هيكون يدوي فقط.",
+-        "اختَر لغة صفحة الإعدادات، وبعدها ابعت الرقم الدولي وكلمة المرور في رسالة واحدة.",
++        "⚙️ فتح إعدادات الرقم من داخل البوت.",
++        "إذا كان الباسورد محفوظاً سيتم فتح اللوحة مباشرة.",
++        "إذا لم يكن محفوظاً، اختر لغة الصفحة ثم أرسل الرقم الدولي + كلمة المرور في رسالة واحدة.",
+     ]
+     if linked_number:
+         manual_lines.append(f"📞 رقمك المربوط الحالي: {linked_number}")
+-        if linked_password:
+-            manual_lines.append("✅ الباسورد محفوظ داخل البوت، لكن لازم تدخله يدويًا لفتح /drf.")
+-        else:
+-            manual_lines.append("ℹ️ لو محتاج الباسورد، افتح الرقم المربوط وأرسل له خاص الأمر: .settings")
+     else:
+-        manual_lines.append("ℹ️ لو رقمك غير مربوط، تقدر تدخل يدويًا بإرسال رقمك الدولي وكلمة المرور بعد اختيار اللغة.")
++        manual_lines.append("ℹ️ لا يوجد رقم مربوط حالياً، يمكنك الدخول يدوياً إذا كان لديك الرقم وكلمة السر.")
+ 
++    context.user_data.pop("drf_auth_payload", None)
+     await message.reply_text(
+         "\n".join(manual_lines),
+         reply_markup=build_pair_language_keyboard(mode="drf"),
+     )
+ 
++
++async def drf_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
++    register_user(update)
++    if not await ensure_subscription(update, context):
++        return
++    user = update.effective_user
++    message = update.effective_message
++    if not user or not message:
++        return
++    await open_linked_number_settings_panel(message, context, user.id)
++
+ def get_green_api_send_message_url() -> str:
+     if GREEN_API_ID_INSTANCE and GREEN_API_TOKEN_INSTANCE:
+         return (
+@@ -2700,11 +2760,13 @@
+         lines.append(f"📞 الرقم المربوط: {normalized_number}")
+     if site_password:
+         lines.append(f"🔐 كلمة سر إعدادات الموقع: {site_password}")
++        lines.append(f"⚙️ صفحة الإعدادات: {TARGET_SETTINGS_PAGE_URL}")
++        lines.append("😀 يمكنك الآن فتح إعدادات الرقم من خاص البوت أو تغيير إيموجي الحالة مباشرة.")
+     else:
+         lines.append("⏳ جارِ تجهيز كلمة سر إعدادات الموقع، وستصلك تلقائيًا عند توفرها.")
+     if bot_link:
+         lines.append(f"🤖 رابط البوت الخاص بك: {bot_link}")
+-    lines.append("😀 هذا الرابط مخصص لهذا الرقم فقط.")
++    lines.append("😀 هذه الرسالة خاصة بهذا الرقم فقط.")
+     return "\n".join(lines)
+ 
+ 
+@@ -3393,7 +3455,8 @@
+     message_lines = [
+         f"✅ تم اكتشاف كلمة سر الرقم {normalized_number} بنجاح.",
+         f"🔐 كلمة سر الإعدادات: {site_password}",
+-        "📌 تم حفظ البيانات داخل البوت لهذا الرقم.",
++        f"⚙️ صفحة الإعدادات: {TARGET_SETTINGS_PAGE_URL}",
++        "📌 تم حفظ البيانات داخل البوت لهذا الرقم، ويمكنك الآن فتح الإعدادات أو تغيير إيموجي الحالة.",
+     ]
+ 
+     try:
+@@ -3482,7 +3545,7 @@
+         build_pairing_success_instruction_message(normalized_number),
+     ]
+     if site_password:
+-        message_lines.extend(["", f"🔐 كلمة سر الإعدادات: {site_password}"])
++        message_lines.extend(["", f"🔐 كلمة سر الإعدادات: {site_password}", f"⚙️ صفحة الإعدادات: {TARGET_SETTINGS_PAGE_URL}", "😀 يمكنك الآن فتح إعدادات الرقم من داخل البوت أو تغيير إيموجي الحالة."])
+     else:
+         message_lines.extend(["", build_password_wait_message(normalized_number)])
+ 
+@@ -4283,9 +4346,10 @@
+             "هلا عزيزي لتغير رمز الحاله ارسل رقمك + الباسورد بالطريقه التاليه 👇\n"
+             "967773987296\n"
+             "1234567\n\n"
+-            "اذا مو عارف الباسورد ارسل خاص رقمك ع الواتس كلمة\n"
++            "إذا كان الرقم مربوط حديثاً فالباسورد يفترض يوصلك تلقائياً في خاص البوت وخاص الرقم.\n"
++            "ولو ماوصلك بعد، ارسل خاص رقمك ع الواتس كلمة\n"
+             ".settings\n"
+-            "راح يتم ارسال الباسورد قم بنسخه ورسله مع الرقم في رساله وحده.."
++            "وراح يتم ارسال الباسورد ثم انسخه ورسله مع الرقم في رسالة وحدة.."
+         )
+         return
+ 
+@@ -4332,10 +4396,9 @@
+         return
+ 
+     if query.data == "open_drf":
+-        await query.message.reply_text(
+-            "🔒 تم إخفاء وقفل الدخول لإعدادات الرقم من الواجهة.\n😀 استخدم زر رموز الحالة فقط.",
+-            reply_markup=build_main_keyboard(admin=is_admin(update)),
+-        )
++        user = update.effective_user
++        if user:
++            await open_linked_number_settings_panel(query.message, context, user.id)
+         return
+ 
+     if query.data == "get_my_password":
+@@ -4349,10 +4412,9 @@
+         context.user_data.pop("selected_pair_language", None)
+         context.user_data.pop("selected_drf_language", None)
+         context.user_data.pop("awaiting_drf_credentials", None)
+-        await query.message.reply_text(
+-            "ℹ️ تم إخفاء الدخول لإعدادات الرقم من الواجهة. استخدم زر رموز الحالة فقط.",
+-            reply_markup=build_main_keyboard(admin=is_admin(update)),
+-        )
++        user = update.effective_user
++        if user:
++            await send_password_for_user_number(query.message, user.id)
+         return
+ 
+     if query.data == "refresh_home":
+@@ -4397,39 +4459,9 @@
+         return
+ 
+     if query.data.startswith("owned_drf:"):
+-        await query.message.reply_text(
+-            "🔒 تم إخفاء وقفل الدخول لإعدادات الرقم من الواجهة.\n😀 استخدم زر رموز الحالة فقط.",
+-            reply_markup=build_main_keyboard(admin=is_admin(update)),
+-        )
+-        return
+-        target_number = normalize_phone_number(query.data.split(":", 1)[1])
+-        target_record = find_user_record_for_number(user.id, target_number)
+-        if not record_belongs_to_user(target_record, user.id):
+-            await query.message.reply_text(
+-                "❌ هذا الرقم غير مربوط من حسابك داخل البوت.",
+-                reply_markup=build_main_keyboard(admin=is_admin(update)),
+-            )
+-            return
+-        target_password = extract_site_password_from_record(target_record)
+-        context.user_data.pop("drf_auth_payload", None)
+-        context.user_data.pop("drf_settings_payload", None)
+-        context.user_data.pop("awaiting_drf_field", None)
+-        context.user_data.pop("awaiting_drf_field_label", None)
+-        context.user_data.pop("awaiting_drf_credentials", None)
+-        context.user_data["selected_drf_language"] = DEFAULT_PAIRING_LANGUAGE
+-        manual_lines = [
+-            f"⚙️ الدخول اليدوي لإعدادات الرقم {target_number}.",
+-            "بعد اختيار اللغة أرسل الرقم وكلمة المرور يدويًا لفتح الإعدادات.",
+-            f"📞 الرقم المحدد: {target_number}",
+-        ]
+-        if target_password:
+-            manual_lines.append("✅ كلمة المرور متاحة داخل البوت لو احتجتها أثناء فتح /drf.")
+-        else:
+-            manual_lines.append("ℹ️ لو بيانات الإعدادات ماوصلتش بعد، انتظر رسالة التأكيد داخل البوت ثم افتح /drf.")
+-        await query.message.reply_text(
+-            "\n".join(manual_lines),
+-            reply_markup=build_pair_language_keyboard(mode="drf"),
+-        )
++        user = update.effective_user
++        if user:
++            await open_linked_number_settings_panel(query.message, context, user.id, query.data.split(":", 1)[1])
+         return
+ 
+     if query.data.startswith("unlink_number:"):
+@@ -4976,13 +5008,7 @@
+         return
+ 
+     if text in DRF_TEXT_TRIGGERS:
+-        if is_admin(update):
+-            await drf_command(update, context)
+-        else:
+-            await update.message.reply_text(
+-                "🔒 تم إخفاء وقفل الدخول لإعدادات الرقم من الواجهة.\n😀 استخدم زر رموز الحالة فقط.",
+-                reply_markup=build_main_keyboard(admin=False),
+-            )
++        await drf_command(update, context)
+         return
+ 
+     if text in USER_EMOJI_TRIGGERS:

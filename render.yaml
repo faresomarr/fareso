@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: telegram-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && npm install --omit=dev --legacy-peer-deps
+    startCommand: python bot_core.py
+    healthcheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DISABLE_EMBEDDED_COMPANION
+        value: "false"
+      - key: PYTHON_ONLY_HOSTING
+        value: "false"
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: AUTO_REPLY_CHANNEL_URL
+        value: https://bwt-lwts.onrender.com
+      - key: DEFAULT_CONTACT_NUMBER
+        value: "967773987296"

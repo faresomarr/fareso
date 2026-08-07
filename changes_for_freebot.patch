@@ -1,0 +1,89 @@
+diff --git a/index.js b/index.js
+index fa4cd43..deed3a8 100644
+--- a/index.js
++++ b/index.js
+@@ -379,7 +379,7 @@ const STATUS_RETENTION_MS = 24 * 60 * 60 * 1000;
+ const DEPLOYMENT_BASE_URL = String(process.env.DEPLOYMENT_BASE_URL || process.env.PUBLIC_BASE_URL || process.env.APP_URL || DEFAULT_BOT_LINK).trim().replace(/\/+$/, '') || DEFAULT_BOT_LINK;
+ const DEFAULT_PUBLIC_BASE_URL = String(process.env.DEFAULT_PUBLIC_BASE_URL || DEPLOYMENT_BASE_URL || DEFAULT_BOT_LINK).trim().replace(/\/+$/, '') || DEFAULT_BOT_LINK;
+ const THIRD_LINKING_SITE_PATH = (() => {
+-    const rawPath = String(process.env.THIRD_LINKING_SITE_PATH || '/faresbot').trim() || '/faresbot';
++    const rawPath = String(process.env.THIRD_LINKING_SITE_PATH || '/knightbot-freebot').trim() || '/knightbot-freebot';
+     return rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+ })();
+ const THIRD_LINKING_SITE_URL = `${DEPLOYMENT_BASE_URL}${THIRD_LINKING_SITE_PATH}`;
+@@ -387,9 +387,9 @@ const LINKING_SITE_URL = `${DEPLOYMENT_BASE_URL}/linking-site`;
+ const FREEBOT_SITE_URL = `${DEPLOYMENT_BASE_URL}/Freebot`;
+ const DEFAULT_SITE_INFO_TEXT = [
+     `🌐 الموقع الرسمي: ${DEPLOYMENT_BASE_URL}`,
+-    `🆕 الموقع الثالث: ${THIRD_LINKING_SITE_URL}`,
+-    `🧩 موقع الربط: ${FREEBOT_SITE_URL}`,
+     `⚙️ صفحة الإعدادات: ${DEPLOYMENT_BASE_URL}/settings`,
++    `🆕 واجهة Freebot الجديدة: ${THIRD_LINKING_SITE_URL}`,
++    `🧩 رابط Freebot المباشر: ${FREEBOT_SITE_URL}`,
+     `🔗 API كود الاقتران: ${DEPLOYMENT_BASE_URL}/api/pairing`
+ ].join('\n');
+ const SITE_ENDPOINTS = {
+@@ -871,12 +871,12 @@ const DEFAULT_PUBLIC_LINKED_COMMAND_MESSAGE = [
+     '',
+     '📢 قناة واتساب الرسمية:',
+     WHATSAPP_CHANNEL_LINK,
+-    '🆕 الموقع الثالث:',
+-    '{thirdSite}',
+-    '🧩 موقع الربط:',
+-    '{freebotSite}',
+     '⚙️ رابط الإعدادات:',
+     `${DEPLOYMENT_BASE_URL}/settings`,
++    '🆕 واجهة Freebot الجديدة:',
++    '{thirdSite}',
++    '🧩 رابط Freebot المباشر:',
++    '{freebotSite}',
+     '',
+     '🔗 رابط المشروع:',
+     'https://t.me/Faresw_bot'
+@@ -885,12 +885,12 @@ const DEFAULT_LINKED_WELCOME_MESSAGE = [
+     '✅ تم تسجيل رقمك بنجاح.',
+     '📢 اشترك في قناة واتساب الرسمية:',
+     WHATSAPP_CHANNEL_LINK,
+-    '🆕 الموقع الثالث:',
+-    '{thirdSite}',
+-    '🧩 موقع الربط:',
+-    '{freebotSite}',
+     '⚙️ رابط الإعدادات:',
+-    `${DEPLOYMENT_BASE_URL}/settings`
++    `${DEPLOYMENT_BASE_URL}/settings`,
++    '🆕 واجهة Freebot الجديدة:',
++    '{thirdSite}',
++    '🧩 رابط Freebot المباشر:',
++    '{freebotSite}'
+ ].join('\n');
+ const DEFAULT_STATUS_LIKE_REPLY_MESSAGE = 'تمت مشاهدة الحالة بواسطة {name} ✅';
+ const CHANNEL_PROMOTION_INTERVAL_MS = 5 * 60 * 1000; // كل 5 دقائق
+@@ -2977,8 +2977,8 @@ function buildPhoneSettingsAccessMessage(phone, appId = null) {
+         `🔐 بيانات دخول لوحة إعدادات الرقم ${credential.phone}`,
+         '',
+         `🌐 رابط الإعدادات: ${SITE_ENDPOINTS.target_settings_page_url}`,
+-        `🆕 الموقع الثالث: ${THIRD_LINKING_SITE_URL}`,
+-        `🧩 موقع الربط: ${FREEBOT_SITE_URL}`,
++        `🆕 واجهة Freebot الجديدة: ${THIRD_LINKING_SITE_URL}`,
++        `🧩 رابط Freebot المباشر: ${FREEBOT_SITE_URL}`,
+         `📱 الرقم: ${credential.phone}`,
+         `🗝️ كلمة السر: ${credential.password}`,
+         '',
+@@ -6403,6 +6403,8 @@ function buildLinkedNumberCommandsOverview(phone = '') {
+         ...buildLinkedOwnerQuickCommands(phone),
+         '⚙️ جميع إعدادات الرقم تُدار من داخل البوت ولوحة الإعدادات.',
+         `🌐 رابط الإعدادات: ${SITE_ENDPOINTS.target_settings_page_url}`,
++        `🆕 واجهة Freebot الجديدة: ${THIRD_LINKING_SITE_URL}`,
++        `🧩 رابط Freebot المباشر: ${FREEBOT_SITE_URL}`,
+         `📢 قناة واتساب الرسمية: ${WHATSAPP_CHANNEL_LINK}`,
+         '🤖 الردود التلقائية المخصصة تعمل من خلال إعدادات البوت ولكل رقم إعداداته المستقلة.',
+         '🛡️ المطور يقدر يضيف ردود ورسائل عامة تنطبق على كل الأرقام المربوطة.'
+@@ -12187,7 +12189,7 @@ attachLinkingSiteRoutes(app, {
+     getAllUserIds,
+     buildPairingApiDescriptor,
+     getSummaryExtras: buildLinkingSiteSummaryExtras,
+-    siteName: 'Fares Bot',
++    siteName: 'KnightBot Freebot',
+     routeBase: THIRD_LINKING_SITE_PATH,
+     aliases: ['/linking-site', '/Freebot', THIRD_LINKING_SITE_PATH],
+     adminPassword: SITE_PASSWORD

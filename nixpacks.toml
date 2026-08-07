@@ -1,0 +1,9 @@
+[phases.setup]
+# تشغيل Python + Node معًا لأن bot_core.py يشغّل محرك واتساب المحلي من نفس المشروع
+nixPkgs = ["python311", "nodejs_20", "libatomic1"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt", "npm install --legacy-peer-deps"]
+
+[start]
+cmd = "python bot_core.py"

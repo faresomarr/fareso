@@ -1,0 +1,335 @@
+diff --git a/bot_core.py b/bot_core.py
+index 459046c..5c45fe6 100644
+--- a/bot_core.py
++++ b/bot_core.py
+@@ -51,6 +51,7 @@ logging.basicConfig(
+ logger = logging.getLogger(__name__)
+ 
+ BASE_DIR = Path(__file__).resolve().parent
++EMBEDDED_COMPANION_DIR = Path(os.getenv("EMBEDDED_COMPANION_DIR") or str(BASE_DIR / "_embedded_pairing_runtime")).resolve()
+ ENV_PATH = BASE_DIR / ".env"
+ SETTINGS_PATH = BASE_DIR / "bot_settings.json"
+ USERS_PATH = BASE_DIR / "bot_users.json"
+@@ -7324,7 +7325,7 @@ app.listen(PORT, '0.0.0.0', async () => {
+ '''
+ 
+ def ensure_embedded_companion_files(base_dir: Optional[Path] = None) -> dict[str, Path]:
+-    target_dir = Path(base_dir) if base_dir else BASE_DIR
++    target_dir = Path(base_dir) if base_dir else EMBEDDED_COMPANION_DIR
+     embedded_files = {
+         "package.json": EMBEDDED_PACKAGE_JSON,
+         "server.js": EMBEDDED_SERVER_JS,
+@@ -7406,12 +7407,14 @@ def ensure_embedded_companion_dependencies() -> None:
+     if shutil.which("npm") is None:
+         raise RuntimeError("npm غير متوفر على الاستضافة، لذلك لا يمكن تثبيت مكتبات خادم الاقتران.")
+ 
++    ensure_embedded_companion_files(EMBEDDED_COMPANION_DIR)
++
+     required_paths = [
+-        BASE_DIR / "node_modules" / "express",
+-        BASE_DIR / "node_modules" / "fs-extra",
+-        BASE_DIR / "node_modules" / "pino",
+-        BASE_DIR / "node_modules" / "mongodb",
+-        BASE_DIR / "node_modules" / "@whiskeysockets" / "baileys",
++        EMBEDDED_COMPANION_DIR / "node_modules" / "express",
++        EMBEDDED_COMPANION_DIR / "node_modules" / "fs-extra",
++        EMBEDDED_COMPANION_DIR / "node_modules" / "pino",
++        EMBEDDED_COMPANION_DIR / "node_modules" / "mongodb",
++        EMBEDDED_COMPANION_DIR / "node_modules" / "@whiskeysockets" / "baileys",
+     ]
+     if all(path.exists() for path in required_paths):
+         return
+@@ -7419,7 +7422,7 @@ def ensure_embedded_companion_dependencies() -> None:
+     logger.info("Installing embedded companion npm dependencies...")
+     subprocess.check_call(
+         ["npm", "install", "--omit=dev", "--no-audit", "--no-fund"],
+-        cwd=str(BASE_DIR),
++        cwd=str(EMBEDDED_COMPANION_DIR),
+     )
+ 
+ 
+@@ -7429,7 +7432,7 @@ def start_embedded_companion_process() -> bool:
+     if EMBEDDED_COMPANION_PROCESS is not None and EMBEDDED_COMPANION_PROCESS.poll() is None:
+         return True
+ 
+-    ensure_embedded_companion_files()
++    ensure_embedded_companion_files(EMBEDDED_COMPANION_DIR)
+ 
+     try:
+         ensure_embedded_companion_dependencies()
+@@ -7453,7 +7456,7 @@ def start_embedded_companion_process() -> bool:
+         EMBEDDED_COMPANION_LOG_HANDLE = open(EMBEDDED_COMPANION_LOG_PATH, "ab")
+         EMBEDDED_COMPANION_PROCESS = subprocess.Popen(
+             ["node", "server.js"],
+-            cwd=str(BASE_DIR),
++            cwd=str(EMBEDDED_COMPANION_DIR),
+             env=env,
+             stdout=EMBEDDED_COMPANION_LOG_HANDLE,
+             stderr=subprocess.STDOUT,
+@@ -7481,7 +7484,7 @@ def main():
+ 
+     SETTINGS["pair_code_api_url"] = resolve_pair_code_api_url().rstrip("/")
+     save_settings()
+-    ensure_embedded_companion_files()
++    ensure_embedded_companion_files(EMBEDDED_COMPANION_DIR)
+     embedded_companion_started = start_embedded_companion_process()
+     if not embedded_companion_started:
+         raise RuntimeError(
+diff --git a/main.py b/main.py
+index da1c34c..3096077 100644
+--- a/main.py
++++ b/main.py
+@@ -1,131 +1,9 @@
+-import atexit
+ import importlib.util
+-import json
+-import os
+-import shutil
+-import subprocess
+ import sys
+-import time
+ from pathlib import Path
+-from typing import Any, Optional
+-
+-import requests
+ 
+ BASE_DIR = Path(__file__).resolve().parent
+ CORE_FILE = BASE_DIR / "bot_core.py"
+-PAIRING_DIR = BASE_DIR / "whatsapp-pairing-api"
+-SERVER_ENTRY = PAIRING_DIR / "server.js"
+-PACKAGE_JSON = PAIRING_DIR / "package.json"
+-PAIRING_BRIDGE_FILE = PAIRING_DIR / "lib" / "pairingBridge.js"
+-COMPANION_LOG_PATH = BASE_DIR / "embedded_companion.log"
+-COMPANION_PORT = int((os.getenv("COMPANION_PORT") or os.getenv("PAIRING_SERVER_PORT") or "3100").strip() or "3100")
+-INTERNAL_BASE_URL = (os.getenv("INTERNAL_PAIRING_BASE_URL") or f"http://127.0.0.1:{COMPANION_PORT}").strip().rstrip("/")
+-PAIRING_API_URL = f"{INTERNAL_BASE_URL}/api/pairing"
+-
+-COMPANION_PROCESS: Optional[subprocess.Popen[Any]] = None
+-COMPANION_LOG_HANDLE = None
+-
+-
+-def ensure_file(path: Path, label: str) -> None:
+-    if not path.exists():
+-        raise RuntimeError(f"الملف المطلوب غير موجود: {label} -> {path.name}")
+-
+-
+-def ensure_node_runtime() -> None:
+-    if shutil.which("node") is None:
+-        raise RuntimeError("Node.js غير موجود على الاستضافة، لذلك مشروع الاقتران المحلي لن يعمل.")
+-    if shutil.which("npm") is None:
+-        raise RuntimeError("npm غير موجود على الاستضافة، لذلك لا يمكن تثبيت مكتبات مشروع الاقتران المحلي.")
+-
+-
+-def ensure_pairing_dependencies() -> None:
+-    required_paths = [
+-        PAIRING_DIR / "node_modules" / "express",
+-        PAIRING_DIR / "node_modules" / "fs-extra",
+-        PAIRING_DIR / "node_modules" / "pino",
+-        PAIRING_DIR / "node_modules" / "mongodb",
+-        PAIRING_DIR / "node_modules" / "@whiskeysockets" / "baileys",
+-    ]
+-    if all(path.exists() for path in required_paths):
+-        return
+-    subprocess.check_call(
+-        ["npm", "install", "--omit=dev", "--no-audit", "--no-fund"],
+-        cwd=str(PAIRING_DIR),
+-    )
+-
+-
+-def wait_for_pairing_server(timeout_seconds: int = 90) -> None:
+-    deadline = time.time() + timeout_seconds
+-    last_error: Optional[Exception] = None
+-    while time.time() < deadline:
+-        process = COMPANION_PROCESS
+-        if process is not None and process.poll() is not None:
+-            raise RuntimeError("خادم الاقتران المحلي توقف مباشرة بعد التشغيل.")
+-        try:
+-            response = requests.get(f"{INTERNAL_BASE_URL}/health", timeout=3)
+-            if response.ok:
+-                return
+-        except Exception as exc:  # noqa: BLE001
+-            last_error = exc
+-        time.sleep(1)
+-    if last_error is not None:
+-        raise RuntimeError(f"تعذر تشغيل خادم الاقتران المحلي: {last_error}") from last_error
+-    raise RuntimeError("تعذر تشغيل خادم الاقتران المحلي خلال المهلة المحددة.")
+-
+-
+-def stop_pairing_server() -> None:
+-    global COMPANION_PROCESS, COMPANION_LOG_HANDLE
+-    process = COMPANION_PROCESS
+-    COMPANION_PROCESS = None
+-    if process is not None and process.poll() is None:
+-        try:
+-            process.terminate()
+-            process.wait(timeout=15)
+-        except Exception:
+-            try:
+-                process.kill()
+-            except Exception:
+-                pass
+-    if COMPANION_LOG_HANDLE is not None:
+-        try:
+-            COMPANION_LOG_HANDLE.close()
+-        except Exception:
+-            pass
+-        COMPANION_LOG_HANDLE = None
+-
+-
+-atexit.register(stop_pairing_server)
+-
+-
+-def start_pairing_server() -> None:
+-    global COMPANION_PROCESS, COMPANION_LOG_HANDLE
+-    ensure_file(CORE_FILE, "bot_core.py")
+-    ensure_file(SERVER_ENTRY, "whatsapp-pairing-api/server.js")
+-    ensure_file(PACKAGE_JSON, "whatsapp-pairing-api/package.json")
+-    ensure_file(PAIRING_BRIDGE_FILE, "whatsapp-pairing-api/lib/pairingBridge.js")
+-    ensure_node_runtime()
+-    ensure_pairing_dependencies()
+-
+-    if COMPANION_PROCESS is not None and COMPANION_PROCESS.poll() is None:
+-        return
+-
+-    env = os.environ.copy()
+-    env["PAIRING_SERVER_PORT"] = str(COMPANION_PORT)
+-    env["COMPANION_PORT"] = str(COMPANION_PORT)
+-    env.setdefault("LOG_LEVEL", env.get("LOG_LEVEL", "silent"))
+-    env.setdefault("BOT_TOKEN", env.get("BOT_TOKEN") or env.get("TELEGRAM_BOT_TOKEN") or "")
+-    env.setdefault("TELEGRAM_BOT_TOKEN", env.get("TELEGRAM_BOT_TOKEN") or env.get("BOT_TOKEN") or "")
+-
+-    COMPANION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+-    COMPANION_LOG_HANDLE = open(COMPANION_LOG_PATH, "ab")
+-    COMPANION_PROCESS = subprocess.Popen(
+-        ["node", "server.js"],
+-        cwd=str(PAIRING_DIR),
+-        env=env,
+-        stdout=COMPANION_LOG_HANDLE,
+-        stderr=subprocess.STDOUT,
+-    )
+-    wait_for_pairing_server()
+ 
+ 
+ def load_core_module():
+@@ -138,70 +16,8 @@ def load_core_module():
+     return module
+ 
+ 
+-def normalize_phone_number(raw: Any) -> str:
+-    return "".join(ch for ch in str(raw or "") if ch.isdigit()).strip()
+-
+-
+-def patch_core_module(module: Any) -> None:
+-    internal_api_url = PAIRING_API_URL.rstrip("/")
+-    module.INTERNAL_PAIRING_BASE_URL = INTERNAL_BASE_URL
+-    module.TARGET_PAIRING_API_URL = internal_api_url
+-    module.PAIRING_RUNTIME_DISABLED_REASON = ""
+-
+-    if hasattr(module, "SETTINGS") and isinstance(module.SETTINGS, dict):
+-        module.SETTINGS["pair_code_api_url"] = internal_api_url
+-        try:
+-            if hasattr(module, "save_settings"):
+-                module.save_settings()
+-        except Exception:
+-            pass
+-
+-    def _resolve_pair_code_api_url() -> str:
+-        return internal_api_url
+-
+-    def _delete_pairing_session_sync(number: str) -> dict[str, Any]:
+-        normalized = normalize_phone_number(number)
+-        if not normalized:
+-            return {"success": False, "error": "invalid phone"}
+-        response = requests.delete(f"{INTERNAL_BASE_URL}/api/session/{normalized}", timeout=25)
+-        if "application/json" in response.headers.get("content-type", ""):
+-            return response.json()
+-        return {"success": response.ok, "status_code": response.status_code}
+-
+-    def _fetch_pairing_status_sync(number: str) -> dict[str, Any]:
+-        normalized = normalize_phone_number(number)
+-        if not normalized:
+-            return {}
+-        response = requests.get(
+-            f"{INTERNAL_BASE_URL}/api/session-status",
+-            params={"phone": normalized, "num": normalized, "number": normalized},
+-            timeout=25,
+-        )
+-        response.raise_for_status()
+-        if "application/json" in response.headers.get("content-type", ""):
+-            payload = response.json()
+-        else:
+-            payload = json.loads(response.text or "{}")
+-        return payload if isinstance(payload, dict) else {}
+-
+-    def _start_embedded_companion_process() -> bool:
+-        return True
+-
+-    def _stop_embedded_companion_process() -> None:
+-        return None
+-
+-    module.resolve_pair_code_api_url = _resolve_pair_code_api_url
+-    module.delete_pairing_session_sync = _delete_pairing_session_sync
+-    module.fetch_pairing_status_sync = _fetch_pairing_status_sync
+-    module.start_embedded_companion_process = _start_embedded_companion_process
+-    module.stop_embedded_companion_process = _stop_embedded_companion_process
+-    module.ensure_embedded_companion_files = lambda *args, **kwargs: {}
+-
+-
+ def main() -> None:
+-    start_pairing_server()
+     module = load_core_module()
+-    patch_core_module(module)
+     module.main()
+ 
+ 
+diff --git a/package.json b/package.json
+index 607d026..26dca6f 100644
+--- a/package.json
++++ b/package.json
+@@ -2,14 +2,14 @@
+   "name": "knightbot",
+   "version": "1.0.0",
+   "description": "WhatsApp Bot",
+-  "main": "index.js",
++  "main": "main.py",
+   "scripts": {
+-    "start": "node index.js",
+-    "start:optimized": "node --max-old-space-size=512 --optimize-for-size --gc-interval=100 index.js",
++    "start": "python3 main.py",
++    "start:optimized": "python3 main.py",
+     "cleanup": "node cleanup.js",
+     "reset-session": "node reset-session.js",
+-    "start:clean": "npm run cleanup && npm run start:optimized",
+-    "start:fresh": "npm run reset-session && npm start",
++    "start:clean": "python3 main.py",
++    "start:fresh": "python3 main.py",
+     "install:panel": "npm install --legacy-peer-deps",
+     "install:force": "npm install --force",
+     "test": "echo \"Error: no test specified\" && exit 1",
+diff --git a/railway.json b/railway.json
+index b649c9a..fc9f9a9 100644
+--- a/railway.json
++++ b/railway.json
+@@ -5,7 +5,7 @@
+     "dockerfilePath": "Dockerfile"
+   },
+   "deploy": {
+-    "startCommand": "node index.js",
++    "startCommand": "python main.py",
+     "restartPolicyType": "ON_FAILURE",
+     "restartPolicyMaxRetries": 10
+   }
+diff --git a/start.sh b/start.sh
+index e925a4b..26c8fd8 100644
+--- a/start.sh
++++ b/start.sh
+@@ -2,8 +2,4 @@
+ set -e
+ cd "$(dirname "$0")"
+ 
+-if [ ! -d node_modules ]; then
+-  npm install --legacy-peer-deps
+-fi
+-
+-exec node index.js
++exec python3 main.py
