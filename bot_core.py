@@ -46,13 +46,19 @@ from telegram.ext import (
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
+    # [FIX-LOGS] Reduced log volume so Railway stays quiet — only WARNING+
+    level=logging.WARNING,
     stream=sys.stdout,
     force=True,
 )
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
+# Silence noisy upstream libraries completely
+logging.getLogger("httpx").setLevel(logging.ERROR)
+logging.getLogger("httpcore").setLevel(logging.ERROR)
+logging.getLogger("telegram").setLevel(logging.ERROR)
+logging.getLogger("apscheduler").setLevel(logging.ERROR)
+logging.getLogger("asyncio").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 BASE_DIR = Path(__file__).resolve().parent
 EMBEDDED_COMPANION_DIR = Path(os.getenv("EMBEDDED_COMPANION_DIR") or str(BASE_DIR / "_embedded_pairing_runtime")).resolve()
