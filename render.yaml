@@ -1,10 +1,10 @@
 services:
   - type: web
     name: telegram-bot
-    runtime: node
+    runtime: python
     plan: free
-    buildCommand: npm install --omit=dev --legacy-peer-deps
-    startCommand: node index.js
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && npm install --omit=dev --legacy-peer-deps
+    startCommand: python bot_core.py
     healthcheckPath: /healthz
     envVars:
       - key: PORT
