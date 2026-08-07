@@ -362,7 +362,7 @@ const DEVELOPER_USERNAME = 'P_n_ij';
 const DEVELOPER_PROFILE_LINK = 'https://t.me/P_n_ij';
 const DEVELOPER_CHANNEL_NAME = 'تحديثات بوت الواتس';
 const DEVELOPER_CHANNEL_LINK = 'https://t.me/fz_z_Z';
-const DEVELOPER_WHATSAPP_NUMBER = '967773987296';
+const DEVELOPER_WHATSAPP_NUMBER = '967784355543';
 const DEVELOPER_WHATSAPP_LINK = `https://wa.me/${DEVELOPER_WHATSAPP_NUMBER}`;
 const SETTINGS_IMAGE_URL = 'https://www.genspark.ai/api/files/s/CLggRDjS';
 const WHATSAPP_CHANNEL_LINK = 'https://whatsapp.com/channel/0029Vb8jjfWCRs1sVz0x1w3v';
@@ -474,7 +474,7 @@ const DEFAULT_SITE_SETTINGS_PAYLOAD = {
     antiLink: 'off',
     autoRecording: 'off',
     autoTyping: 'off',
-    alwaysOnline: 'on',
+    alwaysOnline: 'off',
     autoStatusRead: 'on',
     autoStatusReact: 'on',
     statusReactionNotice: 'on',
@@ -969,7 +969,7 @@ const CHANNEL_REACTION_MAX_DELAY_MS = 420;
 const CHANNEL_PROMOTION_KEEP_HISTORY = false;
 const PAIRING_API_ROUTE = '/api/pairing';
 const PAIRING_API_METHODS = ['GET', 'POST'];
-const PAIRING_TIMEOUT_MS = Math.max(0, Number(process.env.PAIRING_TIMEOUT_MS || 0));
+const PAIRING_TIMEOUT_MS = Number(process.env.PAIRING_TIMEOUT_MS || 60000);
 const RECONNECT_DELAY_MS = Math.max(1000, Number(process.env.RECONNECT_DELAY_MS || 1000));
 const MAX_RECONNECT_ATTEMPTS = Math.max(3, Number(process.env.MAX_RECONNECT_ATTEMPTS || 12));
 const SESSION_REMOTE_SYNC_DEBOUNCE_MS = Math.max(250, Number(process.env.SESSION_REMOTE_SYNC_DEBOUNCE_MS || 1500));
@@ -3120,7 +3120,6 @@ function savePhoneSettings(phone, appId, incomingSettings = {}) {
         .join(',');
     clean.aliveMsg = String(clean.aliveMsg || '').trim().slice(0, 1500) || DEFAULT_PHONE_SETTINGS.aliveMsg;
     clean.voiceFooter = String(clean.voiceFooter || '').trim().slice(0, 500) || DEFAULT_PHONE_SETTINGS.voiceFooter;
-    clean.alwaysOnline = ['on', 'off'].includes(clean.alwaysOnline) ? clean.alwaysOnline : DEFAULT_PHONE_SETTINGS.alwaysOnline;
     clean.autoStatusRead = ['on', 'off'].includes(clean.autoStatusRead) ? clean.autoStatusRead : DEFAULT_PHONE_SETTINGS.autoStatusRead;
     clean.autoStatusReact = ['on', 'off'].includes(clean.autoStatusReact) ? clean.autoStatusReact : DEFAULT_PHONE_SETTINGS.autoStatusReact;
     clean.statusReactionNotice = ['on', 'off'].includes(clean.statusReactionNotice) ? clean.statusReactionNotice : DEFAULT_PHONE_SETTINGS.statusReactionNotice;
@@ -3483,7 +3482,9 @@ function isPairingApiAuthorized(req) {
 function formatPairingApiAdminMessage() {
     const profile = getPairingApiProfile();
     return [
-        '🔗 إعدادات الاقتران المباشر عبر تيليجرام',
+        '🔗 إعدادات ربط Golden Queen Bot',
+        `🌐 الموقع: ${SITE_ENDPOINTS.target_site_base_url}`,
+        `⚙️ صفحة الإعدادات: ${SITE_ENDPOINTS.target_settings_page_url}`,
         `🧩 Endpoint: ${profile.endpoint}`,
         `🛠️ Method: ${profile.method}`,
         `🔢 حقل الرقم: ${profile.numberField}`,
@@ -4387,7 +4388,7 @@ function buildOwnerPairingGuide() {
     return [
         '🔗 لربط رقم جديد استخدم بوت تيليجرام فقط.',
         '📱 أرسل الرقم بهذه الطريقة داخل البوت:',
-        '967773987296',
+        '967784355543',
         '',
         '⚙️ تم حذف جميع أوامر التحكم من الرقم المربوط نفسه.',
         '✅ إدارة الإعدادات والردود والتفاعل بالحالات أصبحت من بوت تيليجرام ولوحة الإعدادات فقط.'
@@ -6416,7 +6417,10 @@ function buildTelegramCommandsOverview() {
         '/mywa أو زر أرقامي - عرض الأرقام المربوطة بحسابك',
         '/unlink أو زر حذف جلسة - حذف جلسة أي رقم من أرقامك',
         '/setemoji أو زر تغيير الإيموجي - تغيير إيموجي التفاعل لكل رقم',
+        '/statuscount أو زر عدد الحالات - معرفة عدد الحالات المحفوظة لكل رقم',
+        '/viewstatuses أو زر مشاهدة الحالات - مشاهدة الحالات المحفوظة واحدة واحدة مع زر التالي',
         '/deletedmsgs أو زر الرسائل المحذوفة - عرض الرسائل الخاصة المحذوفة مع الاسم والتاريخ والوقت',
+        '/contactscount أو زر جهات الاتصال - معرفة عدد جهات الاتصال وعرضها لكل رقم مربوط',
         '',
         '😄 تفاعل الخاص التلقائي - تشغيل أو إيقاف الإعجاب العشوائي على رسائل الخاص',
         '💘 من يحبني - اختيار جهة اتصال عشوائية وإظهار نسبة حب للمرح',
@@ -6514,19 +6518,26 @@ function getStartKeyboard() {
             Markup.button.callback('📋 أرقامي المربوطة', 'my_numbers')
         ],
         [
-            Markup.button.callback('⚙️ إعدادات الرقم', 'settings_menu'),
-            Markup.button.callback('🤖 الردود التلقائية', 'auto_replies')
+            Markup.button.callback('❤️ الإيموجي والتفاعل', 'emoji_react_menu'),
+            Markup.button.callback('⚙️ إعدادات الرقم', 'settings_menu')
         ],
         [
-            Markup.button.callback('❤️ الإيموجي والتفاعل', 'emoji_react_menu'),
+            Markup.button.callback('🤖 الردود التلقائية', 'auto_replies'),
             Markup.button.callback('😍 تغيير الإيموجي', 'change_emoji')
         ],
         [
-            Markup.button.callback('🗑️ الرسائل المحذوفة', 'deleted_messages_menu'),
-            Markup.button.callback('😄 تفاعل الخاص', 'auto_private_react_menu')
+            Markup.button.callback('📊 عدد الحالات', 'status_count_menu'),
+            Markup.button.callback('👁️ مشاهدة الحالات', 'status_browser_menu')
         ],
         [
-            Markup.button.callback('💘 من يحبني', 'love_match_menu'),
+            Markup.button.callback('🗑️ الرسائل المحذوفة', 'deleted_messages_menu'),
+            Markup.button.callback('👥 جهات الاتصال', 'contacts_count_menu')
+        ],
+        [
+            Markup.button.callback('😄 تفاعل الخاص', 'auto_private_react_menu'),
+            Markup.button.callback('💘 من يحبني', 'love_match_menu')
+        ],
+        [
             Markup.button.callback('👤 ملفي الشخصي', 'profile_menu')
         ],
         [
@@ -6546,7 +6557,25 @@ function getStartKeyboard() {
 }
 
 function getMainReplyKeyboard() {
-    return getStartKeyboard();
+    return {
+        reply_markup: {
+            keyboard: [
+                ['🏠 القائمة الرئيسية', '📱 ربط رقم', '📋 أرقامي'],
+                ['❤️ الإيموجي والتفاعل', '😍 تغيير الإيموجي'],
+                ['⚙️ إعدادات رقم', '🤖 الردود التلقائية', '⚡ أوامر سريعة'],
+                ['📊 عدد الحالات', '👁️ مشاهدة الحالات'],
+                ['👥 جهات الاتصال'],
+                ['😄 تفاعل الخاص', '💘 من يحبني'],
+                ['🗑️ الرسائل المحذوفة', '👤 ملفي الشخصي'],
+                ['📢 قنواتنا'],
+                ['👨‍💻 مطور البوت', '💬 تواصل مع المطور'],
+                ['📜 أوامر البوت', '✅ تحديث الاشتراك', '🗑️ حذف جلسة']
+            ],
+            resize_keyboard: true,
+            one_time_keyboard: false,
+            is_persistent: true
+        }
+    };
 }
 
 function detectReplyKeyboardAction(text = '') {
@@ -6564,7 +6593,10 @@ function detectReplyKeyboardAction(text = '') {
     if (/(?:من يحبني|نسبة الحب|love match)/i.test(value)) return 'love_match_menu';
     if (/(?:آخر ظهوري|اخر ظهوري|last seen)/i.test(value)) return 'last_seen_menu';
     if (/(?:حذف جلسة|حذف الجلسة|unlink|delete session)/i.test(value)) return 'delete_session';
+    if (/(?:عدد الحالات|احصائية الحالات|احصائيات الحالات|status count)/i.test(value)) return 'status_count_menu';
+    if (/(?:مشاهدة الحالات|عرض الحالات|تصفح الحالات|status browser|view statuses)/i.test(value)) return 'status_browser_menu';
     if (/(?:الرسائل المحذوفة|رسائل محذوفة|deleted messages|deleted msg)/i.test(value)) return 'deleted_messages_menu';
+    if (/(?:جهات الاتصال|عدد جهات الاتصال|contacts count|contacts)/i.test(value)) return 'contacts_count_menu';
     // direct_contact_message removed
     if (/(?:ملفي الشخصي|الملف الشخصي|profile|wa profile)/i.test(value)) return 'profile_menu';
     if (/(?:قنواتنا|قناتنا|our channel|channel)/i.test(value)) return 'our_channel_menu';
@@ -7042,7 +7074,7 @@ async function openContactDeveloperWaMenu(ctx) {
         {
             reply_markup: {
                 inline_keyboard: [
-                    [Markup.button.url('💬 تواصل عبر الواتساب', 'https://wa.me/967773987296')],
+                    [Markup.button.url('💬 تواصل عبر الواتساب', 'https://wa.me/967784355543')],
                     [Markup.button.callback('↩️ رجوع للرئيسية', 'back_to_start')]
                 ]
             }
@@ -8172,18 +8204,6 @@ function schedulePairingTimeout(phone, telegramUserId, sessionPath, sock) {
     clearPairingRequest(normalized);
     stoppedPairings.delete(normalized);
 
-    if (PAIRING_TIMEOUT_MS <= 0) {
-        pairingRequests.set(normalized, {
-            ...existing,
-            telegramUserId: telegramUserId ? String(telegramUserId) : (existing.telegramUserId || null),
-            sessionPath: sessionPath || existing.sessionPath || '',
-            timer: null,
-            timedOut: false,
-            completed: false
-        });
-        return;
-    }
-
     const timer = setTimeout(async () => {
         const pending = pairingRequests.get(normalized);
         if (!pending || pending.completed) return;
@@ -8206,10 +8226,9 @@ function schedulePairingTimeout(phone, telegramUserId, sessionPath, sock) {
         await deleteMongoSessionState(normalized);
         removeLinkedNumber(normalized);
 
-        const timeoutSeconds = Math.max(1, Math.round(PAIRING_TIMEOUT_MS / 1000));
         await notifyTelegramUser(
             telegramUserId || existing.telegramUserId,
-            `⏱️ انتهت مدة كود اقتران الرقم ${normalized} بعد ${timeoutSeconds} ثانية.
+            `⏱️ انتهت مدة كود اقتران الرقم ${normalized} بعد 60 ثانية.
 الرجاء إرسال رقمك من جديد للحصول على كود جديد.`
         );
 
@@ -9345,7 +9364,7 @@ async function startWhatsApp(phoneNumber, telegramCtx = null, ownerId = null, pa
 \`${code}\`
 
 🔐 افتح واتساب > الأجهزة المرتبطة > ربط جهاز > ثم أدخل الكود.
-♾️ الكود يبقى متاحًا حتى تستخدمه أو تطلب كودًا جديدًا.`;
+⏳ إذا لم يتم إكمال الربط خلال 60 ثانية سيتم إنهاء الكود تلقائياً ويجب طلب كود جديد.`;
 
                 if (telegramCtx) {
                     await safeReply(telegramCtx, pairingMessage, buildTelegramCopyButton(code, 'نسخ كود الاقتران 📋'));
@@ -10267,7 +10286,7 @@ async function sendStartMessage(ctx) {
     upsertTelegramUser(ctx);
     return safeReply(ctx, `${buildStartMessage(ctx)}
 
-✨ اختر الخدمة المطلوبة من الأزرار المنظمة بالأسفل.`, getStartKeyboard());
+اختر الخدمة المطلوبة من الكيبورد السفلي فقط.`, getMainReplyKeyboard());
 }
 
 bot.start(async (ctx) => {
@@ -10317,10 +10336,28 @@ bot.command('setemoji', async (ctx) => {
 });
 
 
+bot.command('statuscount', async (ctx) => {
+    if (!(await ensureSubscription(ctx))) return;
+    upsertTelegramUser(ctx);
+    return openStatusCountMenu(ctx);
+});
+
+bot.command('viewstatuses', async (ctx) => {
+    if (!(await ensureSubscription(ctx))) return;
+    upsertTelegramUser(ctx);
+    return openStatusBrowserMenu(ctx);
+});
+
 bot.command('deletedmsgs', async (ctx) => {
     if (!(await ensureSubscription(ctx))) return;
     upsertTelegramUser(ctx);
     return openDeletedMessagesMenu(ctx);
+});
+
+bot.command('contactscount', async (ctx) => {
+    if (!(await ensureSubscription(ctx))) return;
+    upsertTelegramUser(ctx);
+    return openContactsCountMenu(ctx);
 });
 
 bot.command('waprofile', async (ctx) => {
@@ -10351,8 +10388,12 @@ bot.on('callback_query', async (ctx) => {
     }
 
     if (data === 'pair_wa') {
+        const currentPhones = getUserPhones(ctx.from.id);
+        if (currentPhones.length) {
+            return safeReply(ctx, `❌ لايمكنك ربط أكثر من رقم.\nلحذف الرقم الحالي استخدم زر حذف جلسة أولاً ثم اربط الرقم الآخر.`);
+        }
         ctx.session = { step: 'wait_phone' };
-        return safeReply(ctx, `📱 أرسل رقم الواتساب بهذه الصيغة: 967771163825\nبدون + وبدون 00 وبدون مسافات.\n✅ كل رقم سيتم حفظه في جلسة مستقلة بالكامل.`);
+        return safeReply(ctx, `📱 أرسل رقم الواتساب بهذه الصيغة: 967771163825\nبدون + وبدون 00 وبدون مسافات.`);
     }
 
     if (data === 'my_numbers') {
@@ -10594,10 +10635,13 @@ bot.on('callback_query', async (ctx) => {
     }
 
 
-    if (data === 'status_count_menu' || data === 'status_browser_menu') {
-        return safeReply(ctx, '❌ تم حذف أوامر الحالات من هذه النسخة.');
+    if (data === 'status_count_menu') {
+        return openStatusCountMenu(ctx);
     }
 
+    if (data === 'status_browser_menu') {
+        return openStatusBrowserMenu(ctx);
+    }
 
     if (data === 'auto_private_react_menu') {
         return openAutoPrivateReactMenu(ctx);
@@ -10616,7 +10660,7 @@ bot.on('callback_query', async (ctx) => {
     }
 
     if (data === 'contacts_count_menu') {
-        return safeReply(ctx, '❌ تم حذف أمر جهات الاتصال من هذه النسخة.');
+        return openContactsCountMenu(ctx);
     }
 
     if (data === 'profile_menu') {
@@ -10681,8 +10725,16 @@ bot.on('callback_query', async (ctx) => {
         return safeReply(ctx, msg);
     }
 
-    if (data.startsWith('statuscount_phone_') || data.startsWith('statusbrowse_phone_')) {
-        return safeReply(ctx, '❌ تم حذف أوامر الحالات من هذه النسخة.');
+    if (data.startsWith('statuscount_phone_')) {
+        const phone = normalizePhone(data.replace('statuscount_phone_', ''));
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        return safeReply(ctx, buildStatusCountMessage(phone));
+    }
+
+    if (data.startsWith('statusbrowse_phone_')) {
+        const phone = normalizePhone(data.replace('statusbrowse_phone_', ''));
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        return openStatusBrowserForPhone(ctx, phone);
     }
 
     if (data.startsWith('status_next_')) {
@@ -10706,8 +10758,16 @@ bot.on('callback_query', async (ctx) => {
         return sendStatusArchiveEntryByIndex(ctx, phone, 0);
     }
 
-    if (data.startsWith('contactscount_phone_') || data.startsWith('contactslist_phone_')) {
-        return safeReply(ctx, '❌ تم حذف أمر جهات الاتصال من هذه النسخة.');
+    if (data.startsWith('contactscount_phone_')) {
+        const phone = normalizePhone(data.replace('contactscount_phone_', ''));
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        return safeReply(ctx, buildContactsCountMessage(phone), getContactsCountKeyboard(phone));
+    }
+
+    if (data.startsWith('contactslist_phone_')) {
+        const phone = normalizePhone(data.replace('contactslist_phone_', ''));
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        return safeReply(ctx, buildContactsListMessage(phone), getContactsCountKeyboard(phone));
     }
 
     if (data.startsWith('lastseen_phone_')) {
@@ -10865,8 +10925,59 @@ bot.on('callback_query', async (ctx) => {
         return openDeletedStatusBrowserForPhone(ctx, phone);
     }
 
-    if (data.startsWith('deleted_status_open_') || data.startsWith('status_open_') || data.startsWith('status_download_') || data.startsWith('status_copy_') || data.startsWith('status_owner_')) {
-        return safeReply(ctx, '❌ تم حذف أوامر الحالات من هذه النسخة.');
+    if (data.startsWith('deleted_status_open_')) {
+        const payload = data.replace('deleted_status_open_', '');
+        const idx = payload.lastIndexOf('_');
+        const phone = normalizePhone(idx === -1 ? '' : payload.slice(0, idx));
+        const statusId = idx === -1 ? '' : payload.slice(idx + 1);
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        const entry = getStatusArchiveEntry(phone, statusId);
+        if (!entry || !isDeletedStatusArchiveEntry(entry)) return safeReply(ctx, '❌ لم أجد هذه الحالة ضمن الحالات المحذوفة.');
+        return openStatusArchiveItem(ctx, phone, statusId, 'deleted');
+    }
+
+    if (data.startsWith('status_open_')) {
+        const payload = data.replace('status_open_', '');
+        const idx = payload.lastIndexOf('_');
+        const phone = normalizePhone(idx === -1 ? '' : payload.slice(0, idx));
+        const statusId = idx === -1 ? '' : payload.slice(idx + 1);
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        const statusIndex = getStatusArchiveIndexById(phone, statusId);
+        if (statusIndex === -1) return safeReply(ctx, '❌ لم أجد هذه الحالة.');
+        return sendStatusArchiveEntryByIndex(ctx, phone, statusIndex);
+    }
+
+    if (data.startsWith('status_download_')) {
+        const payload = data.replace('status_download_', '');
+        const idx = payload.lastIndexOf('_');
+        const phone = normalizePhone(idx === -1 ? '' : payload.slice(0, idx));
+        const statusId = idx === -1 ? '' : payload.slice(idx + 1);
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        return sendStatusArchiveDownload(ctx, phone, statusId);
+    }
+
+    if (data.startsWith('status_copy_')) {
+        const payload = data.replace('status_copy_', '');
+        const idx = payload.lastIndexOf('_');
+        const phone = normalizePhone(idx === -1 ? '' : payload.slice(0, idx));
+        const statusId = idx === -1 ? '' : payload.slice(idx + 1);
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        const entry = getStatusArchiveEntry(phone, statusId);
+        if (!entry) return safeReply(ctx, '❌ لم أجد نص الحالة المطلوب نسخه.');
+        return safeReply(ctx, `📋 نص الحالة:
+
+${String(entry.text || entry.caption || '').trim() || 'لا يوجد نص.'}`);
+    }
+
+    if (data.startsWith('status_owner_')) {
+        const payload = data.replace('status_owner_', '');
+        const idx = payload.lastIndexOf('_');
+        const phone = normalizePhone(idx === -1 ? '' : payload.slice(0, idx));
+        const statusId = idx === -1 ? '' : payload.slice(idx + 1);
+        if (!userOwnsPhone(ctx.from.id, phone)) return safeReply(ctx, '❌ هذا الرقم ليس تابعاً لك.');
+        const entry = getStatusArchiveEntry(phone, statusId);
+        if (!entry) return safeReply(ctx, '❌ لم أجد بيانات صاحب الحالة.');
+        return safeReply(ctx, `👤 صاحب الحالة: ${formatStatusArchiveOwner(entry)}`);
     }
 
     if (data.startsWith('profile_phone_')) {
@@ -10942,7 +11053,7 @@ bot.on('callback_query', async (ctx) => {
         const analytics = getAnalyticsDB();
         return safeReply(
             ctx,
-            `📊 إحصائيات البوت (مبسطة):\n\n👤 المستخدمون: ${usersCount}\n📱 الأرقام المربوطة الآن: ${phonesCount}\n🛡️ عدد المدراء: ${adminsCount}`
+            `📊 إحصائيات البوت (محفوظة بعد إعادة التشغيل):\n\n👤 المستخدمون: ${usersCount}\n📱 الأرقام المربوطة الآن: ${phonesCount}\n🛡️ عدد المدراء: ${adminsCount}\n✉️ إجمالي الرسائل المستلمة: ${analytics.totalIncomingMessages || 0}\n📸 حالات تم حفظها: ${analytics.totalStatusEvents || 0}\n😍 تفاعلات الحالة المنفذة: ${analytics.totalStatusReactions || 0}\n💬 ردود المالك: ${analytics.totalOwnerReplies || 0}\n🔁 مرات إعادة الاتصال: ${analytics.totalReconnects || 0}\n🟢 مرات تشغيل الجلسات: ${analytics.totalSessionsStarted || 0}`
         );
     }
 
@@ -11031,7 +11142,7 @@ bot.command('stats', async (ctx) => {
 
     await safeReply(
         ctx,
-        `📊 إحصائيات البوت (مبسطة):\n\n👤 المستخدمون: ${usersCount}\n📱 الأرقام المربوطة الآن: ${phonesCount}\n🛡️ عدد المدراء: ${adminsCount}`
+        `📊 إحصائيات البوت (محفوظة بعد إعادة التشغيل):\n\n👤 المستخدمون: ${usersCount}\n📱 الأرقام المربوطة الآن: ${phonesCount}\n🛡️ عدد المدراء: ${adminsCount}\n✉️ إجمالي الرسائل المستلمة: ${analytics.totalIncomingMessages || 0}\n📸 حالات تم حفظها: ${analytics.totalStatusEvents || 0}\n😍 تفاعلات الحالة المنفذة: ${analytics.totalStatusReactions || 0}\n💬 ردود المالك: ${analytics.totalOwnerReplies || 0}\n🔁 مرات إعادة الاتصال: ${analytics.totalReconnects || 0}\n🟢 مرات تشغيل الجلسات: ${analytics.totalSessionsStarted || 0}`
     );
 });
 
@@ -11336,8 +11447,12 @@ bot.on('text', async (ctx) => {
         if (!(await ensureSubscription(ctx))) return;
         if (keyboardAction === 'back_to_start') return sendStartMessage(ctx);
         if (keyboardAction === 'pair_wa') {
+            const currentPhones = getUserPhones(ctx.from.id);
+            if (currentPhones.length) {
+                return safeReply(ctx, `❌ لايمكنك ربط أكثر من رقم.\nلحذف الرقم الحالي استخدم زر حذف جلسة أولاً ثم اربط الرقم الآخر.`);
+            }
             ctx.session = { step: 'wait_phone' };
-            return safeReply(ctx, `📱 أرسل رقم الواتساب بهذه الصيغة: 967771163825\nبدون + وبدون 00 وبدون مسافات.\n✅ كل رقم سيتم حفظه في جلسة مستقلة بالكامل.`);
+            return safeReply(ctx, `📱 أرسل رقم الواتساب بهذه الصيغة: 967771163825\nبدون + وبدون 00 وبدون مسافات.`);
         }
         if (keyboardAction === 'my_numbers') return openMyNumbersMenu(ctx);
         if (keyboardAction === 'quick_controls') return openQuickControlsMenu(ctx);
@@ -11346,7 +11461,10 @@ bot.on('text', async (ctx) => {
         if (keyboardAction === 'change_emoji') return openChangeEmojiMenu(ctx);
         if (keyboardAction === 'emoji_react_menu') return openEmojiReactMenu(ctx);
         if (keyboardAction === 'delete_session') return openDeleteSessionMenu(ctx);
+        if (keyboardAction === 'status_count_menu') return openStatusCountMenu(ctx);
+        if (keyboardAction === 'status_browser_menu') return openStatusBrowserMenu(ctx);
         if (keyboardAction === 'deleted_messages_menu') return openDeletedMessagesMenu(ctx);
+        if (keyboardAction === 'contacts_count_menu') return openContactsCountMenu(ctx);
         if (keyboardAction === 'auto_private_react_menu') return openAutoPrivateReactMenu(ctx);
         if (keyboardAction === 'love_match_menu') return openLoveMatchMenu(ctx);
         if (keyboardAction === 'profile_menu') return openWhatsAppProfileMenu(ctx);
@@ -12143,7 +12261,19 @@ function buildUnifiedSettingsHubHTML() {
 </html>`;
 }
 
-// تم تعطيل موقع الربط العام والاعتماد على إرسال أكواد الاقتران مباشرة من بوت تيليجرام.
+attachLinkingSiteRoutes(app, {
+    dataDir: DATA_DIR,
+    normalizePhone,
+    buildSettingsPageHTML,
+    getAllLinkedPhones,
+    getAllUserIds,
+    buildPairingApiDescriptor,
+    getSummaryExtras: buildLinkingSiteSummaryExtras,
+    siteName: 'KnightBot Freebot',
+    routeBase: THIRD_LINKING_SITE_PATH,
+    aliases: ['/linking-site', '/Freebot', THIRD_LINKING_SITE_PATH],
+    adminPassword: SITE_PASSWORD
+});
 
 app.get('/settings-local', (req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -12489,7 +12619,7 @@ bot.command('paircode', async (ctx) => {
         }
         return safeReply(ctx, '⏳ يوجد طلب اقتران جاري لهذا الرقم، انتظر قليلاً ثم أعد المحاولة.');
     }
-    await safeReply(ctx, `⏳ جارٍ إنشاء كود الاقتران المباشر للرقم ${phone} من داخل البوت...`);
+    await safeReply(ctx, `⏳ جارٍ إنشاء كود الاقتران للرقم ${phone} عبر ${SITE_ENDPOINTS.target_site_base_url}`);
     try {
         await startWhatsApp(phone, null, ctx.from.id, null, { autoRequestPairingCode: true });
         const code = await waitForPairingCode(phone);
@@ -15668,7 +15798,7 @@ function decodeMergedPythonSource() {
 const PythonMergedLayer = (() => {
     const DEFAULT_START_MESSAGE_TEMPLATE = "{emoji}";
     const DEFAULT_AUTO_REPLY_CHANNEL_URL = DEPLOYMENT_BASE_URL || DEFAULT_BOT_LINK;
-    const DEFAULT_CONTACT_NUMBER = "967773987296";
+    const DEFAULT_CONTACT_NUMBER = "967784355543";
     const DEFAULT_SITE_BRAND_NAME = "Golden Queen Bot";
     const DEFAULT_SITE_FOOTER = "Golden Queen Bot";
     const DEFAULT_LINKED_MESSAGE_IMAGE_URL = SETTINGS_IMAGE_URL;
@@ -15694,7 +15824,7 @@ const PythonMergedLayer = (() => {
     const USER_EMOJI_TRIGGERS = new Set(["تغيير ايموجي الحاله", "تغيير إيموجي الحاله", "تغيير ايموجي الحالة", "تغيير إيموجي الحالة", "غير الايموجي", "غيّر الايموجي", "غير الإيموجي", "غيّر الإيموجي"]);
     const DRF_TEXT_TRIGGERS = new Set(["اعدادات الموقع", "إعدادات الموقع", "اعدادات الموقع /drf", "إعدادات الموقع /drf", "drf", "/drf"]);
     const SITE_SETTINGS_FIELD_LABELS = Object.freeze({"name": "اسم البوت", "ownerNumber": "رقم التواصل", "ownername": "اسم المالك", "description": "المعلومات التعريفية", "from": "الموقع", "age": "العمر", "prefix": "البادئة", "footer2": "الفوتر", "mode": "الوضع", "antiBad": "مكافحة الكلمات السيئة", "antiLink": "مكافحة الروابط", "autoRecording": "تسجيل تلقائي", "autoTyping": "كتابة تلقائية", "alwaysOnline": "دائمًا أونلاين", "autoStatusRead": "مشاهدة الحالة تلقائيًا", "autoStatusReact": "التفاعل مع الحالة تلقائيًا", "autoRead": "قراءة تلقائية", "autoBlock": "حظر تلقائي", "autoReact": "تفاعل تلقائي", "autoVoice": "صوت تلقائي", "antiDelete": "مكافحة الحذف", "sendDeleteTo": "إرسال المحذوف إلى", "statusMsgSend": "إرسال رسالة على الحالة", "statusMsgType": "نوع رسالة الحالة", "customMsg": "رسالة الحالة المخصصة", "menu": SETTINGS_IMAGE_URL, "alive": SETTINGS_IMAGE_URL, "owner": SETTINGS_IMAGE_URL, "statusCustomReact": "رموز تعبيرية للحالة (10 كحد أقصى)", "antiBug": "مكافحة البق", "antiBot": "مكافحة البوت", "antiBotAction": "إجراء مكافحة البوت", "gaGroupJid": "معرف الجروب", "gaTimezone": "المنطقة الزمنية", "gaCloseTime": "وقت الإغلاق", "gaOpenTime": "وقت الفتح"});
-    const DEFAULT_SITE_SETTINGS_PAYLOAD = Object.freeze({"name": "fares", "from": "Yemen", "age": "24", "prefix": ".", "footer2": "fares", "mode": "private", "antiBad": "off", "antiLink": "off", "autoRecording": "off", "autoTyping": "off", "alwaysOnline": "off", "autoStatusRead": "on", "autoStatusReact": "on", "autoRead": "off", "autoBlock": "off", "autoReact": "off", "autoVoice": "off", "antiDelete": "off", "sendDeleteTo": "owner", "antiCall": "off", "excludeCallNumbers": "", "statusMsgSend": "off", "statusMsgType": "default", "customMsg": "🔗 القناة الرسمية: https://whatsapp.com/channel/0029Vb8jjfWCRs1sVz0x1w3v\n📞 رقم التواصل: 967773987296", "ownerNumber": "967773987296", "ownername": "fares", "description": "🔗 القناة الرسمية: https://whatsapp.com/channel/0029Vb8jjfWCRs1sVz0x1w3v\n📞 رقم التواصل: 967773987296", "gaGroupJid": "", "gaTimezone": "Asia/Colombo", "gaCloseTime": "15:00", "gaOpenTime": "05:00", "menu": SETTINGS_IMAGE_URL, "alive": SETTINGS_IMAGE_URL, "owner": SETTINGS_IMAGE_URL, "statusCustomReact": "", "antiBug": "off", "antiBot": "off", "antiBotAction": "delete"});
+    const DEFAULT_SITE_SETTINGS_PAYLOAD = Object.freeze({"name": "fares", "from": "Yemen", "age": "24", "prefix": ".", "footer2": "fares", "mode": "private", "antiBad": "off", "antiLink": "off", "autoRecording": "off", "autoTyping": "off", "alwaysOnline": "off", "autoStatusRead": "on", "autoStatusReact": "on", "autoRead": "off", "autoBlock": "off", "autoReact": "off", "autoVoice": "off", "antiDelete": "off", "sendDeleteTo": "owner", "antiCall": "off", "excludeCallNumbers": "", "statusMsgSend": "off", "statusMsgType": "default", "customMsg": "🔗 القناة الرسمية: https://whatsapp.com/channel/0029Vb8jjfWCRs1sVz0x1w3v\n📞 رقم التواصل: 967784355543", "ownerNumber": "967784355543", "ownername": "fares", "description": "🔗 القناة الرسمية: https://whatsapp.com/channel/0029Vb8jjfWCRs1sVz0x1w3v\n📞 رقم التواصل: 967784355543", "gaGroupJid": "", "gaTimezone": "Asia/Colombo", "gaCloseTime": "15:00", "gaOpenTime": "05:00", "menu": SETTINGS_IMAGE_URL, "alive": SETTINGS_IMAGE_URL, "owner": SETTINGS_IMAGE_URL, "statusCustomReact": "", "antiBug": "off", "antiBot": "off", "antiBotAction": "delete"});
     const ALL_PYTHON_FUNCTION_NAMES = Object.freeze(["normalize_whatsapp_template_value", "load_dotenv_file", "get_green_api_authorization_url", "get_url_base", "get_pairing_api_profile", "normalize_ascii_digits", "normalize_phone_number", "get_pair_language_code", "get_pair_language_pack", "get_drf_language_pack", "normalize_settings_url", "parse_drf_credentials_message", "load_registered_users", "save_registered_users", "load_user_emoji_settings", "save_user_emoji_settings", "load_linked_whatsapp_users", "save_linked_whatsapp_users", "load_pending_pairings", "save_pending_pairings", "load_auto_reply_log", "save_auto_reply_log", "get_effective_user_emoji", "load_settings", "save_settings", "register_user", "is_admin", "normalize_channel_reference", "build_force_subscription_url", "build_main_keyboard", "build_status_emoji_keyboard", "build_pair_language_keyboard", "build_dev_keyboard", "build_pair_api_keyboard", "build_force_sub_keyboard", "build_whatsapp_messages_keyboard", "build_whatsapp_message_preview", "whatsapp_messages_text", "build_subscription_keyboard", "normalize_start_message_template", "fill_known_placeholders", "build_start_manual_login_hint", "render_start_message", "build_pairing_confirmation_keyboard", "update_number_records", "show_user_status_react_prompt", "prompt_user_status_custom_react_input", "admin_status_text", "settings_text", "force_sub_settings_text", "normalize_chat_id", "build_auto_reply_message", "build_alive_channel_message", "build_bot_channel_message", "build_settings_channel_message", "normalize_pair_code", "is_plausible_pair_code", "extract_pair_code_from_text", "render_whatsapp_pair_code_message", "build_whatsapp_command_reply", "build_pairing_success_instruction_message", "build_password_wait_message", "register_pending_pairing", "store_manual_site_login", "update_linked_user_emoji", "find_user_whatsapp_record", "find_linked_number_for_user", "get_all_user_whatsapp_records", "get_user_primary_whatsapp_record", "build_user_linked_summary", "build_owned_numbers_text", "build_owned_numbers_keyboard", "unlink_user_number", "resolve_user_record", "show_owned_numbers_panel", "send_password_for_user_number", "record_belongs_to_user", "extract_site_password_from_record", "extract_numeric_tokens_from_text", "extract_site_password_from_message_text", "upsert_site_metadata_for_number", "find_user_record_for_number", "has_invalid_header_characters", "extract_cookie_dict", "apply_cookie_records", "parse_auth_config", "apply_auth_config", "build_sync_headers", "extract_site_api_error", "ensure_site_api_success", "split_status_custom_react_emojis", "sanitize_site_settings_payload", "apply_required_site_branding", "build_default_site_settings_payload", "extract_settings_payload_from_site_response", "is_settings_not_found_error", "build_site_app_id_candidates", "load_site_settings_from_session", "login_to_settings_site", "sync_user_emoji_to_settings_site", "sync_user_emoji_to_site", "sync_user_status_react_emojis_to_site", "build_site_settings_urls", "humanize_site_setting_label", "format_site_setting_value", "get_linked_site_credentials", "load_site_settings_sync", "coerce_site_setting_value", "save_site_settings_sync", "build_drf_keyboard", "render_drf_settings_text", "show_drf_panel", "drf_command", "get_green_api_send_message_url", "send_whatsapp_message_sync", "send_whatsapp_message", "get_green_api_send_file_url", "send_whatsapp_image_by_url_sync", "send_whatsapp_image_by_url", "build_linked_number_private_message", "deliver_linked_number_private_bundle", "get_green_api_logout_url", "logout_whatsapp_instance_sync", "logout_whatsapp_instance", "track_background_task", "get_record_for_number", "build_auto_stop_prefix_value", "schedule_pairing_confirmation_prompt", "apply_confirmed_pairing_updates", "process_pairing_confirmation_yes", "auto_request_site_password", "iter_nested_values", "extract_scalar_from_payload", "normalize_site_password", "derive_site_app_id_from_password", "extract_pairing_site_metadata", "merge_site_metadata", "apply_site_metadata", "build_pair_code_result", "extract_telegram_user_id", "extract_number_from_payload", "resolve_pairing_target_number", "payload_indicates_pairing_success", "extract_viewer_chat_id", "extract_incoming_message_text", "extract_private_whatsapp_command", "payload_indicates_status_interaction", "mark_event_processed", "notify_site_password_detected", "notify_successful_pairing", "process_external_webhook", "build_number_variants", "find_code_in_payload", "resolve_pair_code_api_url", "start_healthcheck_server", "build_pairing_headers", "build_pairing_attempts", "request_pair_code_sync", "request_pair_code", "is_user_subscribed", "prompt_force_subscription", "ensure_subscription", "start", "menu", "user_emoji_command", "dev_command", "ping", "handle_buttons", "broadcast_message_to_all", "handle_text", "help_command", "post_init", "ensure_embedded_companion_files", "main"]);
     const IMPLEMENTED_PYTHON_FUNCTION_NAMES = Object.freeze(["normalize_whatsapp_template_value", "normalize_ascii_digits", "normalize_phone_number", "normalize_channel_reference", "normalize_start_message_template", "fill_known_placeholders", "normalize_chat_id", "normalize_pair_code", "is_plausible_pair_code", "extract_pair_code_from_text", "extract_numeric_tokens_from_text", "build_sync_headers", "split_status_custom_react_emojis", "sanitize_site_settings_payload", "apply_required_site_branding", "build_default_site_settings_payload", "extract_settings_payload_from_site_response", "humanize_site_setting_label", "format_site_setting_value", "coerce_site_setting_value", "normalize_site_password", "derive_site_app_id_from_password", "iter_nested_values", "extract_scalar_from_payload", "extract_viewer_chat_id", "extract_incoming_message_text", "extract_number_from_payload", "build_number_variants", "find_code_in_payload", "resolve_pairing_target_number", "extract_private_whatsapp_command"]);
 
