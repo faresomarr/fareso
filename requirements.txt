@@ -1,6 +1,0 @@
-pyTelegramBotAPI
-python-dotenv
-requests
-urllib3
-beautifulsoup4
-
